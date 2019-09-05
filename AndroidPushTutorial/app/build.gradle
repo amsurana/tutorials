@@ -5,8 +5,8 @@ android {
     buildToolsVersion "29.0.0"
     defaultConfig {
         applicationId "io.ably.tutorial.push.directregistration"
-        minSdkVersion 19
-        targetSdkVersion 19
+        minSdkVersion 22
+        targetSdkVersion 29
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -24,4 +24,10 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.0.2'
     implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
 
+    implementation 'io.ably:ably-android:1.1.3'
+
+    implementation 'com.google.firebase:firebase-messaging:19.0.1'
+    implementation 'com.google.firebase:firebase-core:17.0.0'
 }
+
+apply plugin: 'com.google.gms.google-services'
