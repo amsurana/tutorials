@@ -16,6 +16,9 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
+
 import io.ably.lib.realtime.AblyRealtime;
 import io.ably.lib.realtime.CompletionListener;
 import io.ably.lib.realtime.ConnectionStateListener;
@@ -35,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
     public static final String STEP_1 = "Initialize Ably";
     public static final String STEP_2 = "Activate Push";
     public static final String STEP_3 = "Subscribe Channels";
+    public static final String STEP_4 = "Send Test Push";
     
     
     public static final String TEST_PUSH_CHANNEL_NAME = "push:test_push_channel";
@@ -74,12 +78,13 @@ public class MainActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             if (ABLY_PUSH_ACTIVATE_ACTION.equalsIgnoreCase(intent.getAction())) {
                 ErrorInfo error = IntentUtils.getErrorInfo(intent);
-                if (error != null) {
+                if (error!=null) {
                     logMessage("Error activating push service: " + error);
                     handler.sendMessage(handler.obtainMessage(FAILURE));
                     return;
                 }
                 logMessage("Device is now registered for push");
+                handler.sendMessage(handler.obtainMessage(SUCCESS, STEP_3));
                 return;
             }
             if (AblyPushMessagingService.PUSH_NOTIFICATION_ACTION.equalsIgnoreCase(intent.getAction())) {
@@ -100,6 +105,7 @@ public class MainActivity extends AppCompatActivity {
     
     /**
      * This method is called when button is clicked.
+     *
      * @param view
      */
     public void performAction(View view) {
@@ -118,6 +124,10 @@ public class MainActivity extends AppCompatActivity {
                 case STEP_3:
                     subscribeChannels();
                     break;
+                case STEP_4:
+                    sendTestPush();
+                    button.setEnabled(true);
+                    break;
             }
         } catch (AblyException e) {
             logMessage("AblyException " + e.getMessage());
@@ -129,6 +139,7 @@ public class MainActivity extends AppCompatActivity {
         String clientId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
         return clientId;
     }
+    
     /**
      * Step 1: Initialize Ably Runtime
      *
@@ -165,6 +176,7 @@ public class MainActivity extends AppCompatActivity {
     
     /**
      * Step 2: Activate Push using Ably Library
+     *
      * @throws AblyException
      */
     private void initAblyPush() throws AblyException {
@@ -189,6 +201,34 @@ public class MainActivity extends AppCompatActivity {
                 handler.sendMessage(handler.obtainMessage(FAILURE));
             }
         });
+    }
+    
+    /**
+     * Step 4: Send a Test push using the Device ID through Ably.
+     * The library sends push notification through device ID
+     */
+    private void sendTestPush() {
+        try {
+            JsonObject data = new JsonObject();
+            data.add("testKey", new JsonPrimitive("testValueDirect"));
+            data.add("clientId", new JsonPrimitive(ablyRealtime.push.getLocalDevice().clientId));
+            JsonObject payload = new JsonObject();
+            payload.add("data", data);
+            String deviceId = ablyRealtime.push.getLocalDevice().id;
+            ablyRealtime.push.admin.publishAsync(new Param[]{new Param("deviceId", deviceId)}, payload, new CompletionListener() {
+                @Override
+                public void onSuccess() {
+                    logMessage("Push message sent from device successfully.");
+                }
+                
+                @Override
+                public void onError(ErrorInfo reason) {
+                    logMessage("Error sending push. reason: " + reason);
+                }
+            });
+        } catch (AblyException e) {
+            e.printStackTrace();
+        }
     }
     
     private void logMessage(String message) {
