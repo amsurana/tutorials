@@ -1,5 +1,9 @@
 package io.ably.tutorial.push.directregistration;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -10,12 +14,16 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import io.ably.lib.realtime.AblyRealtime;
 import io.ably.lib.realtime.ConnectionStateListener;
 import io.ably.lib.types.AblyException;
 import io.ably.lib.types.ClientOptions;
+import io.ably.lib.types.ErrorInfo;
 import io.ably.lib.types.Param;
+import io.ably.lib.util.IntentUtils;
+import io.ably.tutorial.push.directregistration.receivers.AblyPushMessagingService;
 
 public class MainActivity extends AppCompatActivity {
     
@@ -24,6 +32,7 @@ public class MainActivity extends AppCompatActivity {
     public static final int UPDATE_LOGS = 2;
     
     public static final String STEP_1 = "Initialize Ably";
+    public static final String STEP_2 = "Activate Push";
     
     
     public static final String TEST_PUSH_CHANNEL_NAME = "push:test_push_channel";
@@ -58,12 +67,33 @@ public class MainActivity extends AppCompatActivity {
         }
     });
     
+    private BroadcastReceiver pushReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (ABLY_PUSH_ACTIVATE_ACTION.equalsIgnoreCase(intent.getAction())) {
+                ErrorInfo error = IntentUtils.getErrorInfo(intent);
+                if (error != null) {
+                    logMessage("Error activating push service: " + error);
+                    handler.sendMessage(handler.obtainMessage(FAILURE));
+                    return;
+                }
+                logMessage("Device is now registered for push");
+                return;
+            }
+            if (AblyPushMessagingService.PUSH_NOTIFICATION_ACTION.equalsIgnoreCase(intent.getAction())) {
+                logMessage("Received Push message");
+            }
+        }
+    };
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         rollingLogs = findViewById(R.id.rolling_logs);
         stepsButton = findViewById(R.id.steps);
+        LocalBroadcastManager.getInstance(this).registerReceiver(pushReceiver, new IntentFilter(ABLY_PUSH_ACTIVATE_ACTION));
+        LocalBroadcastManager.getInstance(this).registerReceiver(pushReceiver, new IntentFilter(AblyPushMessagingService.PUSH_NOTIFICATION_ACTION));
     }
     
     /**
@@ -79,6 +109,9 @@ public class MainActivity extends AppCompatActivity {
             switch (step) {
                 case STEP_1:
                     initAblyRuntime();
+                    break;
+                case STEP_2:
+                    initAblyPush();
                     break;
             }
         } catch (AblyException e) {
@@ -124,6 +157,15 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+    
+    /**
+     * Step 2: Activate Push using Ably Library
+     * @throws AblyException
+     */
+    private void initAblyPush() throws AblyException {
+        ablyRealtime.push.activate();
+    }
+    
     
     private void logMessage(String message) {
         Log.i(MainActivity.class.getSimpleName(), message);
