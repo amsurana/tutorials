@@ -17,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import io.ably.lib.realtime.AblyRealtime;
+import io.ably.lib.realtime.CompletionListener;
 import io.ably.lib.realtime.ConnectionStateListener;
 import io.ably.lib.types.AblyException;
 import io.ably.lib.types.ClientOptions;
@@ -33,6 +34,7 @@ public class MainActivity extends AppCompatActivity {
     
     public static final String STEP_1 = "Initialize Ably";
     public static final String STEP_2 = "Activate Push";
+    public static final String STEP_3 = "Subscribe Channels";
     
     
     public static final String TEST_PUSH_CHANNEL_NAME = "push:test_push_channel";
@@ -113,6 +115,9 @@ public class MainActivity extends AppCompatActivity {
                 case STEP_2:
                     initAblyPush();
                     break;
+                case STEP_3:
+                    subscribeChannels();
+                    break;
             }
         } catch (AblyException e) {
             logMessage("AblyException " + e.getMessage());
@@ -166,6 +171,25 @@ public class MainActivity extends AppCompatActivity {
         ablyRealtime.push.activate();
     }
     
+    /**
+     * Step 3: Subscribe to the Channel using Ably Library. Ensure the Channel has push enabled.
+     * Push can be enabled from *Channel rules* section under *Settings* of your account dashboard.
+     */
+    private void subscribeChannels() {
+        ablyRealtime.channels.get(TEST_PUSH_CHANNEL_NAME).push.subscribeClientAsync(new CompletionListener() {
+            @Override
+            public void onSuccess() {
+                logMessage("Subscribed to push for the channel " + TEST_PUSH_CHANNEL_NAME);
+            }
+            
+            @Override
+            public void onError(ErrorInfo reason) {
+                logMessage("Error subscribing to push channel " + reason.message);
+                logMessage("Visit link for more details: " + reason.href);
+                handler.sendMessage(handler.obtainMessage(FAILURE));
+            }
+        });
+    }
     
     private void logMessage(String message) {
         Log.i(MainActivity.class.getSimpleName(), message);
